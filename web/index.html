@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MoveMentor 动译师 · 运动翻译演示</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark">动</span>
+    <div>
+      <h1>MoveMentor 动译师</h1>
+      <p>把年轻人的健身动作，翻译成膝痛人群 / 轮椅使用者 / 久坐人群也能做的低冲击版本</p>
+    </div>
+  </div>
+  <div class="engine-badge" id="engine-badge">引擎加载中…</div>
+</header>
+
+<main>
+  <section class="panel controls">
+    <div class="field">
+      <label for="motion">源动作</label>
+      <select id="motion"></select>
+    </div>
+    <div class="field">
+      <label for="audience">人群</label>
+      <select id="audience"></select>
+    </div>
+    <div class="field">
+      <label for="source">姿态来源</label>
+      <select id="source">
+        <option value="synthetic">合成姿态（无需摄像头）</option>
+        <option value="camera">摄像头 + MediaPipe</option>
+      </select>
+    </div>
+    <div class="field buttons">
+      <button id="start" class="primary">开始翻译</button>
+      <button id="stop">停止</button>
+      <button id="speak-toggle" class="ghost">语音播报：开</button>
+    </div>
+  </section>
+
+  <section class="grid">
+    <div class="panel viewport">
+      <div class="viewport-head">
+        <span class="tag" id="audience-tag">—</span>
+        <span class="muted" id="source-note">合成姿态源：离线可跑，不需要摄像头</span>
+      </div>
+      <div class="stage">
+        <video id="video" playsinline muted></video>
+        <canvas id="overlay"></canvas>
+        <div class="stage-placeholder" id="stage-placeholder">
+          点击「开始翻译」，这里会显示关键点骨架<br />
+          （合成模式下是引擎生成的姿态轨迹，摄像头模式下是 MediaPipe 的实时检测）
+        </div>
+      </div>
+    </div>
+
+    <div class="panel result">
+      <div class="result-head">
+        <h2 id="headline">等待开始</h2>
+        <p id="reason" class="muted">选择源动作与人群，然后点击开始。</p>
+      </div>
+
+      <div class="counters">
+        <div class="counter">
+          <div class="counter-label" id="counter-label">完成次数</div>
+          <div class="counter-value" id="reps">0</div>
+          <div class="counter-sub" id="phase">—</div>
+        </div>
+        <div class="meter">
+          <div class="meter-bar"><div class="meter-fill" id="progress"></div></div>
+          <div class="meter-note" id="confidence">关键点可见度 —</div>
+        </div>
+      </div>
+
+      <div class="event-line" id="event-line"></div>
+
+      <div class="split">
+        <div>
+          <h3>动作要点</h3>
+          <ul id="cues" class="cues"></ul>
+        </div>
+        <div>
+          <h3>为什么这个版本成立</h3>
+          <ul id="checks" class="checks"></ul>
+        </div>
+      </div>
+
+      <div class="script">
+        <h3>指导语</h3>
+        <ol id="script"></ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel footer-notes">
+    <div>
+      <h3>反向翻译</h3>
+      <p id="reverse" class="muted">—</p>
+    </div>
+    <div class="disclaimer">
+      <strong>安全边界</strong>
+      <p>
+        本工具给出的是「降低关节负荷的低冲击变式」，不是医疗建议，也不代表对任何疾病有效。
+        如果在运动中感到疼痛、头晕或不适，请立即停止并咨询医生。
+      </p>
+    </div>
+  </section>
+</main>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
