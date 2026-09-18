@@ -1,0 +1,16 @@
+# 统一行尾：shell 脚本与源码一律 LF，避免在 Windows 上 checkout 后钩子失效。
+* text=auto eol=lf
+
+# 二进制与构建产物不做行尾转换
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+
+# 显式声明语言，便于 GitHub 统计与高亮
+*.mbt  linguist-language=MoonBit
+*.mbti linguist-language=MoonBit
+
+# 构建产物与 LLM 生成物不计入语言统计
+_build/* linguist-generated=true
+_build/** linguist-vendored=true
