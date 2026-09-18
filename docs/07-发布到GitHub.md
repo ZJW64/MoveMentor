@@ -1,6 +1,6 @@
 # 发布到 GitHub
 
-> 目标：把这个本地仓库推送到你自己的公开 GitHub 仓库，并让 14 次提交正确归属到你名下。
+> 目标：把这个本地仓库推送到你自己的公开 GitHub 仓库，并让全部提交正确归属到你名下。
 > 前提：本机已装 Git（`git --version` 有输出）。不需要装 `gh`，不需要手动配置 token —— 推送时会自动弹出浏览器登录。
 
 ---
@@ -14,7 +14,7 @@
 | Repository name | `MoveMentor` | 和本地目录名一致，最省事 |
 | Description | 把 `README.md` 里那句英文描述粘进去（256 字符那版） | 仓库页首屏就能看到，评审友好 |
 | Visibility | **Public** | 参赛要求「仓库公开」是硬指标 |
-| Initialize this repository with | **全部不勾**（README / .gitignore / License 都不勾） | ⚠️ **关键**：勾了任何一个，远程就会先有一个提交，本地 14 个提交的历史和它对不上，push 会被拒绝 |
+| Initialize this repository with | **全部不勾**（README / .gitignore / License 都不勾） | ⚠️ **关键**：勾了任何一个，远程就会先有一个提交，本地全部提交的历史和它对不上，push 会被拒绝 |
 
 点 **Create repository**。
 
@@ -24,32 +24,53 @@
 
 ## 第 2 步：配置提交身份（重要，别跳过）
 
-现在本地仓库的作者是占位的 `MoveMentor <movementor@users.noreply.github.com>`。
-不改的话，这 14 次提交在 GitHub 上**不会算到你名下**，也不会计入你的贡献图。
+这一步做错了，代码照样能推上去，但**作者归属会很离谱**。两种失败模式都真实发生过：
 
-把 `<你的用户名>` 和 `<你的邮箱>` 换成你自己的（邮箱建议用 GitHub 提供的匿名地址，不暴露真实邮箱）：
+- 作者是脚手架默认名 → GitHub 不把这些提交算到你名下，贡献图也不计入。
+- noreply 邮箱的本地部分用了**项目名**而不是用户名 → 只要 GitHub 上恰好存在同名账号，
+  提交会被静默归到那个人名下。实测中 `movementor@users.noreply.github.com` 命中了
+  一位 2023 年注册的 `MoveMentor` 用户：仓库所有者贡献显示 0，contributors 里只有对方。
+
+所以邮箱的本地部分必须是**真实的用户名**。推荐带数字 ID 的形式（ID 从
+`https://api.github.com/users/<你的用户名>` 的 `id` 字段取）：
 
 ```bash
-cd "C:/Users/Z/Desktop/MoveMentor"
-
 git config user.name  "<你的用户名>"
-git config user.email "<你的用户名>@users.noreply.github.com"
-
-# 把已有的 14 次提交的作者一起改掉
-git commit --amend --reset-author --no-edit
-git rebase --exec "git commit --amend --reset-author --allow-empty --no-edit" --root
+git config user.email "<数字ID>+<你的用户名>@users.noreply.github.com"
 ```
 
-> `git rebase --root` 会把从第一个提交开始的所有提交重写一遍，逐个换成新身份。
-> `--allow-empty` 不能省：如果历史里存在空提交，不带它 amend 会失败并中断整个 rebase。
-> 如果中途停下来，先执行 `git status` 看提示；想放弃就执行 `git rebase --abort` 回到原样。
->
-> 只有一次提交时（`git log --oneline | wc -l` 输出 1），`git rebase --root` 可以省略。
+### 改写已有提交的作者
 
-改完确认一下：
+先备份。这不是客套话：下面这一步失败过一次，直接把 `.git` 的 refs 与 objects 清空，
+仓库变成「No commits yet on main」。
 
 ```bash
-git log --format="%an <%ae>  %s" | head -3
+git bundle create "../MoveMentor-backup.bundle" --all
+git bundle verify "../MoveMentor-backup.bundle"
+
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --env-filter '
+export GIT_AUTHOR_NAME="<你的用户名>"
+export GIT_AUTHOR_EMAIL="<数字ID>+<你的用户名>@users.noreply.github.com"
+export GIT_COMMITTER_NAME="<你的用户名>"
+export GIT_COMMITTER_EMAIL="<数字ID>+<你的用户名>@users.noreply.github.com"
+' -- --all
+```
+
+> **不要用 `git rebase --root --exec "git commit --amend --reset-author"`。**
+> 它属于交互式 rebase 的机制，依赖 sequence editor。当 `GIT_SEQUENCE_EDITOR` 被设成
+> 空字符串时（不少集成终端和 CI 会这样），它会报
+> `could not mark as interactive: No such file or directory` 并失败；实测这个失败会
+> 连带清空 `refs/heads`、`refs/remotes` 与 objects 目录。
+>
+> `filter-branch` 不碰编辑器，对根提交和空提交天然安全，只替换作者/提交者字段，
+> 提交信息与时间原样保留。
+
+改完确认（应只输出一种身份）：
+
+```bash
+git log --format="%an <%ae> | %cn <%ce>" | sort -u
+git rev-parse HEAD^{tree}   # 与备份对比，树哈希应完全相同，证明内容没被改坏
+git fsck --no-progress      # 无输出 = 干净
 ```
 
 ---
@@ -79,7 +100,7 @@ git push -u origin main
 
 ```bash
 git remote -v                              # 应显示 origin 指向你的仓库
-git log --oneline                          # 14 条提交
+git log --oneline                          # 应与本地提交数一致
 git status                                 # 应显示 working tree clean
 git ls-remote --heads origin               # 应显示远程的 main 分支与 commit hash
 ```
@@ -136,14 +157,47 @@ git push --force-with-lease -u origin main
 
 ### 推送成功，但 GitHub 上提交作者不是我
 
-第 2 步没做或做漏了。执行：
+第 2 步没做或做漏了。先分清是哪一种：
 
 ```bash
+curl -s https://api.github.com/repos/<你的用户名>/MoveMentor/commits/main \
+  | python -c "import sys,json;c=json.load(sys.stdin);print(c['commit']['author'],(c.get('author') or {}).get('login'))"
+```
+
+- 输出的 `login` 是 `None` → 邮箱没对上任何账号，提交显示为未关联的灰色头像。
+- 输出的 `login` 是**别人的用户名** → 撞库了，就是第 2 步记录的那个案例。
+
+两种都用同一套流程修（邮箱换成带数字 ID 的形式）：
+
+```bash
+git bundle create "../MoveMentor-backup.bundle" --all        # 先备份
+
 git config user.name  "<你的用户名>"
-git config user.email "<你的用户名>@users.noreply.github.com"
-git rebase --exec "git commit --amend --reset-author --allow-empty --no-edit" --root
+git config user.email "<数字ID>+<你的用户名>@users.noreply.github.com"
+
+FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --env-filter '
+export GIT_AUTHOR_NAME="<你的用户名>"
+export GIT_AUTHOR_EMAIL="<数字ID>+<你的用户名>@users.noreply.github.com"
+export GIT_COMMITTER_NAME="<你的用户名>"
+export GIT_COMMITTER_EMAIL="<数字ID>+<你的用户名>@users.noreply.github.com"
+' -- --all
+
 git push --force-with-lease origin main
 ```
+
+> `--force-with-lease` 要求远程跟踪引用存在、且与远端真实状态一致，否则报 `stale info`。
+> 正常情况先 `git fetch origin` 拿回真实状态即可。如果 fetch 不通（网络受限），
+> 可以按 API 查到的远端 SHA 手工写入：
+>
+> ```bash
+> SHA=$(curl -s https://api.github.com/repos/<你的用户名>/MoveMentor/commits/main \
+>       | python -c "import sys,json;print(json.load(sys.stdin)['sha'])")
+> mkdir -p .git/refs/remotes/origin
+> printf '%s\n' "$SHA" > .git/refs/remotes/origin/main
+> ```
+>
+> 另外注意：部分 Git for Windows 版本里 `git update-ref refs/remotes/...` 会返回 0
+> 却**不真的创建引用**，所以这里用写文件的方式。
 
 ### 认证一直失败 / 反复弹登录窗
 

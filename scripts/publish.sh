@@ -9,10 +9,15 @@
 #   GIT_NAME="Your Name" GIT_EMAIL="you@example.com" bash scripts/publish.sh <地址>
 #
 # 这个脚本会做四件事：
-#   1. 校正本仓库的提交身份（当前是占位的 MoveMentor <movementor@users.noreply.github.com>）
+#   1. 校正本仓库的提交身份（默认从仓库地址推断用户名 + GitHub noreply 邮箱）
 #   2. 把已有提交的作者一起改成新身份，否则 GitHub 不会把提交算到你名下
+#      （改写之前会自动打一个 bundle 备份到仓库上一级目录）
 #   3. 添加或更新 origin
 #   4. 推送并打印验证结果
+#
+# ⚠️ noreply 邮箱的本地部分必须是**真实的 GitHub 用户名**（或 <数字ID>+<用户名>）。
+#    绝不要拿项目名、品牌名代替：只要那个名字在 GitHub 上存在（哪怕是不相干的人），
+#    提交就会被静默归到他名下，GitHub 不会有任何报错。
 #
 # 它**不会**做破坏性操作：不用 --force，不改写已经推到远程的历史。
 # 如果远程仓库不是空的，脚本会停下来说明怎么处理，而不是硬覆盖。
@@ -83,10 +88,33 @@ else
   if grep -qvF "$name <$email>" "$snapshot"; then
     total="$(git rev-list --count HEAD)"
     echo "[2/4] 有提交的作者不是上面这个身份，开始改写 $total 个提交的作者…"
-    echo "      （中途想放弃：git rebase --abort）"
-    # --allow-empty 是必要的：历史里若存在空提交，不带它 amend 会失败而中断整个 rebase。
-    git rebase --root --exec "git commit --amend --reset-author --allow-empty --no-edit"
-    echo "      改写完成"
+
+    # 改写历史之前先备份。这不是客套：下面这一步失败过一次，直接把 .git 的 refs
+    # 和 objects 清空，仓库变成「No commits yet on main」。备份是唯一的救命绳。
+    backup="../$(basename "$PWD")-backup-$(date +%Y%m%d-%H%M%S).bundle"
+    git bundle create "$backup" --all >/dev/null
+    echo "      改前已备份到：$backup"
+
+    # 用 filter-branch，不要用 `git rebase --root --exec "git commit --amend ..."`。
+    # 后者属于交互式 rebase 的机制，需要一个 sequence editor：当 GIT_SEQUENCE_EDITOR
+    # 被设为空字符串（很多集成终端与 CI 会这样）时报
+    # `could not mark as interactive: No such file or directory`，
+    # 而且实测会连带清空 refs/heads、refs/remotes 与 objects 目录。
+    # filter-branch 不碰编辑器，对根提交和空提交也天然安全。
+    # 它偶尔因 refs/remotes/origin/HEAD 的软链接返回非 0，所以下面用结果来判定成败。
+    FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch --force --env-filter "
+export GIT_AUTHOR_NAME=\"$name\"
+export GIT_AUTHOR_EMAIL=\"$email\"
+export GIT_COMMITTER_NAME=\"$name\"
+export GIT_COMMITTER_EMAIL=\"$email\"
+" -- --all >/dev/null 2>&1 || true
+
+    if git log --format='%an <%ae>' | grep -qvF "$name <$email>"; then
+      echo "      改写未完全成功，先别推送。恢复到改前状态：" >&2
+      echo "        git fetch \"$backup\" '+refs/*:refs/backup/*'" >&2
+      exit 1
+    fi
+    echo "      改写完成（作者与提交者都已换成新身份）"
   else
     echo "[2/4] 所有提交的作者已经正确，无需改写"
   fi
