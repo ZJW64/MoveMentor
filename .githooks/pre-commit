@@ -1,3 +1,24 @@
 #!/bin/sh
+#
+# 提交前跑一次类型检查。
+#
+# 注意：如果本机没装 MoonBit 工具链，这里**跳过检查而不是让提交失败**。
+# 一个钩子不该因为「工具没装」就把整个仓库锁死——尤其这个仓库会被人克隆到
+# 没有 moon 的机器上（比如只改文档、只改演示页面的时候）。
+# 装了工具链之后，这条检查会自动生效，不需要任何额外配置。
+#
+# 想强制每次都跑（不安装就报错）的话，设置 MOVEMENTOR_STRICT_HOOK=1。
 
-moon check
+if command -v moon >/dev/null 2>&1; then
+  moon check
+  exit $?
+fi
+
+if [ "$MOVEMENTOR_STRICT_HOOK" = "1" ]; then
+  echo "pre-commit: 未找到 moon，但 MOVEMENTOR_STRICT_HOOK=1，视为失败。" >&2
+  echo "pre-commit: 请安装 MoonBit 工具链：https://www.moonbitlang.com/download/" >&2
+  exit 1
+fi
+
+echo "pre-commit: 未找到 moon，跳过 moon check（安装 MoonBit 工具链后此检查自动生效）"
+exit 0
