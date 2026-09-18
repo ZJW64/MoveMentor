@@ -33,6 +33,7 @@ const state = {
   speakOn: true,
   planId: null,
   startedAt: 0,
+  pendingWarmMs: 0,
   lastSpoken: -1,
   landmarker: null,
   cameraStream: null,
@@ -306,7 +307,13 @@ async function start() {
     el("source").value = "synthetic";
     console.error(error);
   }
-  state.startedAt = state.engine.api_now_ms();
+  // 先把 warm 秒数的姿态喂进去，再让时钟从暖机结束处继续，
+  // 这样骨架和数字是接着的，不会出现「数字跳回 0。」
+  const warmMs = state.pendingWarmMs || 0;
+  state.pendingWarmMs = 0;
+  if (warmMs > 0 && state.source === "synthetic") warmUp(warmMs);
+
+  state.startedAt = state.engine.api_now_ms() - warmMs;
   state.running = true;
   el("start").disabled = true;
   cancelAnimationFrame(state.rafId);
@@ -320,11 +327,65 @@ function stop() {
   if (state.engine) state.engine.api_reset();
 }
 
+/* ---------- URL 参数（便于截图、录屏与评审复现）----------
+ *
+ * 用法示例：
+ *   web/?audience=wheelchair&auto=1
+ *   web/?motion=squat&audience=elderly_knee_pain&source=synthetic&auto=1&speak=0
+ *
+ * 支持：motion / audience / source / auto / speak / warm
+ *
+ *   warm=<秒数>  在开始渲染前，先把这么多秒的合成姿态「快速喂」给引擎，
+ *                让计数器直接落在某个进度上。用于录屏与截图的确定性复现，
+ *                也让评审不必等 10 秒才看到数字。
+ * 这样一段演示就是一个可复现的 URL，截图和录屏不必依赖手动点击。
+ */
+
+function applyQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const motion = params.get("motion");
+  const audience = params.get("audience");
+  const source = params.get("source");
+  const speak = params.get("speak");
+  const warm = Number(params.get("warm") || 0);
+
+  if (motion) state.motion = motion;
+  if (audience) state.audience = audience;
+  if (source === "synthetic" || source === "camera") state.source = source;
+  if (speak === "0") state.speakOn = false;
+  if (speak === "1") state.speakOn = true;
+
+  el("motion").value = state.motion;
+  el("audience").value = state.audience;
+  el("source").value = state.source;
+  el("speak-toggle").textContent = `语音播报：${state.speakOn ? "开" : "关"}`;
+
+  return {
+    auto: params.get("auto") === "1",
+    warmMs: Number.isFinite(warm) && warm > 0 ? Math.round(warm * 1000) : 0,
+  };
+}
+
+/**
+ * 把 warmMs 毫秒的合成姿态一次性喂给引擎。
+ *
+ * 用的是和命令行自检、自动化测试完全相同的那条链路（api_synth_landmarks →
+ * api_step_json），所以这里跑出来的数字和 `moon run cmd/main` 打印的是同一套结果。
+ */
+function warmUp(warmMs) {
+  const step = 33;
+  for (let t = 0; t <= warmMs; t += step) {
+    const flat = state.engine.api_synth_landmarks(state.motion, state.audience, t);
+    state.engine.api_step_json(state.motion, state.audience, flat, t);
+  }
+}
+
 /* ---------- 事件绑定 ---------- */
 
 window.addEventListener("DOMContentLoaded", async () => {
   await loadEngine();
   fillSelects();
+  const query = applyQueryParams();
   applyTranslation();
 
   el("motion").addEventListener("change", (event) => {
@@ -349,4 +410,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     event.target.textContent = `语音播报：${state.speakOn ? "开" : "关"}`;
   });
   window.addEventListener("resize", () => drawSkeleton(null));
+
+  // 让页面在被截图前先稳定渲染一帧骨架与数字
+  requestAnimationFrame(() => requestAnimationFrame(() => drawSkeleton(null)));
+
+  if (query.auto) {
+    state.pendingWarmMs = query.warmMs;
+    // 自动演示：等一帧确保布局完成，再开始跑
+    setTimeout(() => start(), 120);
+  }
 });

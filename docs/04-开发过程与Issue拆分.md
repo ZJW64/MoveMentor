@@ -30,7 +30,7 @@
 
 | # | Issue | 产出 / 验收方式 | 状态 |
 | --- | --- | --- | --- |
-| 1 | 初始化 MoonBit 工程，配置 `preferred_target = js` 与 ESM 导出格式 | `moon build --target js` 产出可被 node 直接 import 的 ES Module | ✅ |
+| 1 | 初始化 MoonBit 工程，配置 `preferred_target = js` 与 ESM 导出格式 | `moon build --release --target js` 产出可被 node 直接 import 的 ES Module | ✅ |
 | 2 | 定义姿态数据结构：`Joint` 枚举映射 BlazePose 索引、`PoseFrame` 与 132 长度的校验 | `PoseFrame::from_flat` 对错误长度返回 `None` 而非 panic | ✅ |
 | 3 | 几何原语：三点夹角、竖直倾角、安全除法 | 单测覆盖，含 0 长度向量与超出 acos 定义域的钳制 | ✅ |
 | 4 | 指标注册表：18 个指标 + 中文标签 + 名称校验 | `is_known_metric` 能在 DSL 解析期拦下拼错的名字 | ✅ |

@@ -73,8 +73,8 @@ moon run cmd/main --target js -- demo squat wheelchair 10   # 跑 10 秒
 页面通过 ES module 直接引用构建产物，所以需要用一个本地 HTTP 服务打开（不能用 `file://`）：
 
 ```bash
-moon build --target js          # 先构建，产物在 _build/js/release/build/src/bridge/bridge.js
-python -m http.server 8000      # 在仓库根目录执行
+moon build --release --target js   # 注意 --release：页面引用的是 release 产物
+python -m http.server 8000         # 在仓库根目录执行
 # 浏览器打开 http://localhost:8000/web/
 ```
 
@@ -82,6 +82,40 @@ python -m http.server 8000      # 在仓库根目录执行
 
 - **合成姿态模式（默认，离线可用）**：由引擎按当前动作的 DSL 阈值生成一段确定性的假骨架，用来验证「翻译 → 计数 → 指导语」整条链路。不需要摄像头，也不需要联网，断网也能演示。
 - **摄像头模式**：从 CDN 加载 MediaPipe Pose，把 33 个关键点拍平成 132 个数交给引擎。首次使用需要联网下载模型。
+
+### 3.4 一段演示就是一个 URL
+
+页面支持用查询参数直达任意演示状态，**截图、录屏和评审复现都不依赖手动点击**：
+
+| 参数 | 取值 | 说明 |
+| --- | --- | --- |
+| `motion` | 动作 id | 源动作，如 `jumping_jack` / `squat` / `plank` |
+| `audience` | 人群 id | 如 `elderly_knee_pain` / `wheelchair` / `office_sedentary` |
+| `source` | `synthetic` \| `camera` | 姿态来源，默认合成 |
+| `auto` | `1` | 打开后自动开始 |
+| `warm` | 秒数 | **先把这么多秒的合成姿态一次性喂给引擎**，让计数器直接落在某个进度上 |
+| `speak` | `0` \| `1` | 语音播报开关 |
+
+例如复现「开合跳 → 膝痛版坐姿抬腿，已经做了 5 次」：
+
+```
+http://localhost:8000/web/?motion=jumping_jack&audience=elderly_knee_pain&auto=1&warm=9&speak=0
+```
+
+`warm` 走的是和命令行自检、单元测试完全相同的那条链路（`api_synth_landmarks` → `api_step_json`），所以页面上显示的数字和 `moon run cmd/main` 打印的是同一套结果。
+
+### 3.5 六个演示画面
+
+| 源动作 | 人群 | 翻译结果 | 画面 |
+| --- | --- | --- | --- |
+| 开合跳 | 膝痛 / 老年低冲击人群 | 坐姿抬腿（单腿） | `docs/demo/01-开合跳到膝痛版坐姿抬腿.png` |
+| 开合跳 | 轮椅使用者 | 坐姿双臂上举 | `docs/demo/02-开合跳到轮椅版坐姿双臂上举.png` |
+| 开合跳 | 久坐办公人群 | 无跳跃开合步 | `docs/demo/03-开合跳到久坐版无跳跃开合步.png` |
+| 徒手深蹲 | 膝痛 / 老年低冲击人群 | 扶椅浅蹲 | `docs/demo/04-深蹲到膝痛版扶椅浅蹲.png` |
+| 平板支撑 | 膝痛 / 老年低冲击人群 | 靠墙直立（等长） | `docs/demo/05-平板支撑到膝痛版靠墙直立-等长.png` |
+| — | — | 未开始的初始状态 | `docs/demo/00-初始状态.png` |
+
+同一张规则表在不同人群下给出完全不同但各自成立的方案，这就是「引擎」而不是「一对一特例」的直接证据。
 
 ## 4. 目录结构
 
