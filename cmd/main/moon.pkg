@@ -1,0 +1,6 @@
+import {
+  "hackathon/movementor/src/engine",
+  "moonbitlang/core/env",
+}
+
+pkgtype(kind: "executable")
