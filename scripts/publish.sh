@@ -84,7 +84,8 @@ else
     total="$(git rev-list --count HEAD)"
     echo "[2/4] 有提交的作者不是上面这个身份，开始改写 $total 个提交的作者…"
     echo "      （中途想放弃：git rebase --abort）"
-    git rebase --root --exec "git commit --amend --reset-author --no-edit"
+    # --allow-empty 是必要的：历史里若存在空提交，不带它 amend 会失败而中断整个 rebase。
+    git rebase --root --exec "git commit --amend --reset-author --allow-empty --no-edit"
     echo "      改写完成"
   else
     echo "[2/4] 所有提交的作者已经正确，无需改写"

@@ -37,10 +37,11 @@ git config user.email "<你的用户名>@users.noreply.github.com"
 
 # 把已有的 14 次提交的作者一起改掉
 git commit --amend --reset-author --no-edit
-git rebase --exec "git commit --amend --reset-author --no-edit" --root
+git rebase --exec "git commit --amend --reset-author --allow-empty --no-edit" --root
 ```
 
 > `git rebase --root` 会把从第一个提交开始的所有提交重写一遍，逐个换成新身份。
+> `--allow-empty` 不能省：如果历史里存在空提交，不带它 amend 会失败并中断整个 rebase。
 > 如果中途停下来，先执行 `git status` 看提示；想放弃就执行 `git rebase --abort` 回到原样。
 >
 > 只有一次提交时（`git log --oneline | wc -l` 输出 1），`git rebase --root` 可以省略。
@@ -140,7 +141,7 @@ git push --force-with-lease -u origin main
 ```bash
 git config user.name  "<你的用户名>"
 git config user.email "<你的用户名>@users.noreply.github.com"
-git rebase --exec "git commit --amend --reset-author --no-edit" --root
+git rebase --exec "git commit --amend --reset-author --allow-empty --no-edit" --root
 git push --force-with-lease origin main
 ```
 
