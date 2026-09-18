@@ -1,0 +1,36 @@
+import {
+  "hackathon/movementor/src/engine",
+}
+
+// 这一层是唯一接触浏览器的包：它把引擎的纯逻辑包成页面可以直接调用的接口，
+// 并通过 JS FFI 提供两件必须由宿主提供的能力（语音合成、高精度计时）。
+//
+// 边界只有两种数据：
+//   进来 —— 132 个 Double（33 个关键点 × x/y/z/visibility），来自 MediaPipe；
+//   出去 —— 一个 JSON 字符串。
+// 视频、图像、模型推理全部留在浏览器侧，引擎这一侧永远看不到画面。
+
+supported_targets = "js"
+
+options(
+  link: {
+    "js": {
+      "format": "esm",
+      "exports": [
+        "api_version",
+        "api_motion_ids",
+        "api_audience_ids",
+        "api_metric_names",
+        "api_catalog_json",
+        "api_translate_json",
+        "api_script_json",
+        "api_reverse_json",
+        "api_reset",
+        "api_step_json",
+        "api_synth_landmarks",
+        "api_speak",
+        "api_now_ms",
+      ],
+    },
+  },
+)
